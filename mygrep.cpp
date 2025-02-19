@@ -1,12 +1,17 @@
-#include <iostream>
-#include <string>
+#include <algorithm>
 #include <fstream>
+#include <iostream>
+#include <ranges>
+#include <string>
 #include <vector>
+
 
 struct Arguments
 {
     bool lineNumbers = false;
     bool occurences = false;
+    bool reverse = false;
+    bool caseInsensitive = false;
 };
 
 struct FoundLine
@@ -24,62 +29,93 @@ int main(int argc, char* argv[])
 {
     string searchString;
     string stringToSearch;
-    bool lineNumbers = false;
-    bool occurences = false;
-    if (argc > 1)
+    bool argsInUse = false;
+    try
     {
-        Arguments args;
-        int length = strlen(argv[1]);
-        if (length < 2)
+        // Vain yhtä argumenttia ei voi käyttää
+        if (argc == 1)
         {
-            // TODO: heitä error
+            throw std::invalid_argument("Too few arguments");
         }
+        // Jos käytetään jotain argumentteja
+        if (argc > 1)
+        {
+            Arguments args;
+            int length = strlen(argv[1]);
+            // Jos käytetään -o argumentteja, mitä käytetään. Pelkkä -o ei tee mitään
+            if (static_cast<string>(argv[1]).substr(0, 2) == "-o")
+            {
+                argsInUse = true;
+                for (int i = 0; i < length - 2; i++)
+                {
+                    switch (argv[1][i + 2])
+                    {
+                    case 'l':
+                        args.lineNumbers = true;
+                        break;
+                    case 'o':
+                        args.occurences = true;
+                        break;
+                    case 'r':
+                        args.reverse = true;
+                        break;
+                    case 'i':
+                        args.caseInsensitive = true;
+                        break;
+                    default:
+                        throw std::invalid_argument("Invalid arguments");
+                    }
+                }
+            }
 
-        for (int i = 0; i < length-2; i++)
-        {
-            if (argv[1][i + 2] == 'l')
+            // Jos -o argumentteja ei käytössä, haettava string ja mistä haetaan löytyy 1 aikaisemmin
+            if (!argsInUse)
             {
-                args.lineNumbers = true;
+                searchString = argv[1];
+                stringToSearch = argv[2];
+                if (argc > 3)
+                {
+                    throw std::invalid_argument("Too many or invalid arguments");
+                }
             }
-            else if (argv[1][i + 2] == 'o')
+            else if (argsInUse)
             {
-                args.occurences = true;
+                searchString = argv[2];
+                stringToSearch = argv[3];
+                if (argc > 4)
+                {
+                    throw std::invalid_argument("Too many or invalid arguments");
+                }
+            }
+
+            // Annettiin tekstitiedosto.
+            if (findString(stringToSearch, ".txt"))
+            {
+                findStringFromFile(stringToSearch, searchString, args);
+            }
+
+            // Annettiin tekstiä eikä tekstitiedostoa
+            // Argumentit ei käytössä koska ei tarvinnut toimia tälle
+            else
+            {
+                findStringFromText(stringToSearch, searchString);
             }
         }
-        // Jos argumentteja on kolme -> Ei ole käytössä argumentit (-o) joten haettava teksti löytyy yhden aiemmasta
-        if (argc == 3)
-        {
-            searchString = argv[1];
-            stringToSearch = argv[2];
-        }
-        // Käytössä argumentit (-o)
+        // Ei annettu mitään argumentteja, kysytään siis mitä haetaan ja mistä
         else
         {
-            searchString = argv[2];
-            stringToSearch = argv[3];
-        }
-        
-        if (findString(argv[3], ".txt"))
-        {
-            findStringFromFile(stringToSearch, searchString, args);
-        }
-
-        // Annettiin tekstiä eikä tekstitiedostoa
-        // Argumentit ei käytössä koska ei tarvinnut toimia tälle
-        else
-        {
+            cout << "Give a string from which to search for: ";
+            getline(cin, stringToSearch);
+            cout << "Give search string: ";
+            getline(cin, searchString);
             findStringFromText(stringToSearch, searchString);
         }
     }
-    // Ei annettu mitään argumentteja, kysytään siis mitä haetaan ja mistä
-    else
+    // Virheenkäsittely
+    catch (const exception& e)
     {
-        cout << "Give a string from which to search for: ";
-        getline(cin, stringToSearch);
-        cout << "Give search string: ";
-        getline(cin, searchString);
-        findStringFromText(stringToSearch, searchString);
-    } 
+        cout << "An error occured: " << e.what() << "\n";
+    }
 }
 
 void findStringFromFile(string fileToSearch, string searchString, Arguments args)
@@ -87,18 +123,60 @@ void findStringFromFile(string fileToSearch, string searchString, Arguments args
     string line;
     ifstream inputfile;
     inputfile.open(fileToSearch);
+    // Tarkistetaan, että tiedosto on olemassa
+    try 
+    {
+        if (!inputfile.good())
+        {
+            throw std::ios_base::failure("Specified file does not exist or cannot be opened.");
+        }
+    }
+    catch (const exception& e)
+    {
+        cout << "An error occured: " << e.what() << "\n";
+    }
     vector<FoundLine> foundStringLines;
     int lineNumber = 1;
     while (getline(inputfile, line))
     {
-        if (line.find(searchString) != string::npos)
+        // Normaali haku
+        if (line.find(searchString) != string::npos && !args.caseInsensitive && !args.reverse)
         {
             FoundLine foundLine = { line, lineNumber };
             foundStringLines.emplace_back(foundLine);
-        } 
+        }
+        // -r, normaali käänteinen haku
+        else if (line.find(searchString) == string::npos && !args.caseInsensitive && args.reverse)
+        {
+            FoundLine foundLine = { line, lineNumber };
+            foundStringLines.emplace_back(foundLine);
+        }
+        // -i, merkkikokoriippumaton haku
+        else if (args.caseInsensitive)
+        {
+            string lowerLine = line;
+            string lowerSearch = searchString;
+            ranges::transform(lowerLine, lowerLine.begin(), tolower);
+            ranges::transform(lowerSearch, lowerSearch.begin(), tolower);
+
+            // normaali merkkikokoriippumaton haku
+            if (lowerLine.find(lowerSearch) != string::npos && !args.reverse)
+            {
+                FoundLine foundLine = { line, lineNumber };
+                foundStringLines.emplace_back(foundLine);
+            }   
+            // -r, käänteinen merkkikokoriippumaton haku
+            else if (lowerLine.find(lowerSearch) == string::npos && args.reverse)
+            {
+                FoundLine foundLine = { line, lineNumber };
+                foundStringLines.emplace_back(foundLine);
+            }
+        }         
         lineNumber++;
     }
     
+    // Rivien tulostus
+    // -l, rivinumerot
     if (args.lineNumbers)
     {
         for (const FoundLine& line : foundStringLines)
@@ -106,6 +184,7 @@ void findStringFromFile(string fileToSearch, string searchString, Arguments args
             cout << line.lineNumber << ": " << line.text << "\n";
         }
     }
+    // Ei rivinumeroita
     else
     {
         for (const FoundLine& line : foundStringLines)
@@ -113,10 +192,20 @@ void findStringFromFile(string fileToSearch, string searchString, Arguments args
             cout << line.text << "\n";
         }
     }
- 
+
+    // -o
     if (args.occurences)
     {
-        cout << "Occurrences of lines containing \"" << searchString << "\": " << foundStringLines.size();
+        if (!args.reverse)
+        {
+            cout << "Occurrences of lines containing \"" << searchString << "\": " << foundStringLines.size();
+        }
+        // -o, -i
+        else
+        {
+            cout << "Occurrences of lines NOT containing \"" << searchString << "\": " << foundStringLines.size();
+        }
+        
     }
 }
 
