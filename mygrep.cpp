@@ -18,7 +18,7 @@ void findString(string stringToSearch, string searchString)
     size_t found = stringToSearch.find(searchString);
     if (found!=string::npos)
     {
-        cout << "\"" << searchString << "\" found in " << stringToSearch << " at position " << found << "\n";
+        cout << "\"" << searchString << "\" found in \"" << stringToSearch << "\" at position " << found << "\n";
     }
     else
     {
