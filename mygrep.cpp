@@ -27,13 +27,14 @@ void findStringFromFile(string fileToSearch, string searchString, Arguments args
 
 int main(int argc, char* argv[])
 {
+    setlocale(LC_ALL, "fi-FI");
     string searchString;
     string stringToSearch;
     bool argsInUse = false;
     try
     {
         // Vain yht‰ argumenttia ei voi k‰ytt‰‰
-        if (argc == 1)
+        if (argc == 2)
         {
             throw std::invalid_argument("Too few arguments");
         }
@@ -120,6 +121,7 @@ int main(int argc, char* argv[])
 
 void findStringFromFile(string fileToSearch, string searchString, Arguments args)
 {
+    
     string line;
     ifstream inputfile;
     inputfile.open(fileToSearch);
@@ -173,6 +175,11 @@ void findStringFromFile(string fileToSearch, string searchString, Arguments args
             }
         }         
         lineNumber++;
+    }
+    if (foundStringLines.empty())
+    {
+        cout << "No matches found.";
+        return;
     }
     
     // Rivien tulostus
