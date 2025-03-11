@@ -1,4 +1,5 @@
 #include <algorithm>
+#include <cstring>
 #include <fstream>
 #include <iostream>
 #include <ranges>
@@ -158,8 +159,8 @@ void findStringFromFile(string fileToSearch, string searchString, Arguments args
         {
             string lowerLine = line;
             string lowerSearch = searchString;
-            ranges::transform(lowerLine, lowerLine.begin(), tolower);
-            ranges::transform(lowerSearch, lowerSearch.begin(), tolower);
+            ranges::transform(lowerLine, lowerLine.begin(), [](unsigned char c) { return std::tolower(c); });
+            ranges::transform(lowerSearch, lowerSearch.begin(), [](unsigned char c) { return std::tolower(c); });
 
             // normaali merkkikokoriippumaton haku
             if (lowerLine.find(lowerSearch) != string::npos && !args.reverse)
